@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GPU Monitoring Dashboard</title>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='serverdashboard.css') }}">
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='styles.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="server-dashboard-body">
+    <nav class="dashboard-nav">
+        <div class="nav-title">
+            <i class="fas fa-microchip"></i>
+            <span>GPU Monitor</span>
+        </div>
+        <div class="nav-actions">
+            <select id="timeRange" class="time-selector">
+                <option value="1">1 Hour</option>
+                <option value="6">6 Hours</option>
+                <option value="24">24 Hours</option>
+            </select>
+            <a href="{{ url_for('logout') }}" class="logout-button">
+                <i class="fas fa-sign-out-alt"></i>
+                <span>Logout</span>
+            </a>
+        </div>
+    </nav>
+
+    <div class="server-dashboard-container">
+        <div class="dashboard-header">
+            <h1 class="dashboard-title">GPU Performance Metrics</h1>
+            <div class="refresh-info">
+                <i class="fas fa-sync-alt"></i>
+                <span>Auto-refreshing every 5s</span>
+            </div>
+        </div>
+
+        <div class="stats-container">
+            <div class="stats-card">
+                <div class="card-header">
+                    <h3><i class="fas fa-tachometer-alt"></i> GPU Utilization</h3>
+                    <span class="current-value">0%</span>
+                </div>
+                <div class="chart-container">
+                    <canvas id="gpuUtilizationChart"></canvas>
+                </div>
+            </div>
+
+            <div class="stats-card">
+                <div class="card-header">
+                    <h3><i class="fas fa-memory"></i> Memory Usage</h3>
+                    <span class="current-value">0 GB</span>
+                </div>
+                <div class="chart-container">
+                    <canvas id="memoryUtilizationChart"></canvas>
+                </div>
+            </div>
+
+            <div class="stats-card">
+                <div class="card-header">
+                    <h3><i class="fas fa-thermometer-half"></i> Temperature</h3>
+                    <span class="current-value">0°C</span>
+                </div>
+                <div class="chart-container">
+                    <canvas id="temperatureChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="dashboard-footer">
+            <div class="gpu-summary">
+                <div id="gpuMemoryDetails" class="memory-details">
+                    <!-- Memory details will be dynamically added here -->
+                </div>
+            </div>
+            <a href="{{ url_for('display') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i>
+                Back to Display
+            </a>
+        </div>
+    </div>
+
+    <script>
+        // GPU Usage Chart
+        const gpuUtilizationChartCtx = document.getElementById('gpuUtilizationChart').getContext('2d');
+        const gpuUtilizationChart = new Chart(gpuUtilizationChartCtx, {
+            type: 'bar',
+            data: {
+                labels: [], // GPU indices
+                datasets: [
+                    {
+                        label: 'GPU Utilization (%)',
+                        data: [],
+                        backgroundColor: 'rgba(75, 192, 192, 0.6)',
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        borderWidth: 1
+                    }
+                ]
+            },
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        min: 0,
+                        max: 100
+                    }
+                },
+                responsive: true,
+                maintainAspectRatio: false
+            }
+        });
+
+        const memoryUtilizationChartCtx = document.getElementById('memoryUtilizationChart').getContext('2d');
+        const memoryUtilizationChart = new Chart(memoryUtilizationChartCtx, {
+            type: 'bar',
+            data: {
+                labels: [], // GPU indices
+                datasets: [
+                    {
+                        label: 'Memory Utilization (%)',
+                        data: [],
+                        backgroundColor: 'rgba(192, 75, 75, 0.6)',
+                        borderColor: 'rgba(192, 75, 75, 1)',
+                        borderWidth: 1
+                    }
+                ]
+            },
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        min: 0,
+                        max: 100
+                    }
+                },
+                responsive: true,
+                maintainAspectRatio: false
+            }
+        });
+
+        const temperatureChartCtx = document.getElementById('temperatureChart').getContext('2d');
+        const temperatureChart = new Chart(temperatureChartCtx, {
+            type: 'bar',
+            data: {
+                labels: [], // GPU indices
+                datasets: [
+                    {
+                        label: 'Temperature (°C)',
+                        data: [],
+                        backgroundColor: 'rgba(255, 206, 86, 0.6)',
+                        borderColor: 'rgba(255, 206, 86, 1)',
+                        borderWidth: 1
+                    }
+                ]
+            },
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        min: 0,
+                        max: 100
+                    }
+                },
+                responsive: true,
+                maintainAspectRatio: false
+            }
+        });
+
+        // Replace the existing fetchGpuStats function with this updated version
+        async function fetchGpuStats() {
+            try {
+                const response = await fetch('/api/gpu_stats');
+                const data = await response.json();
+
+                if (response.ok) {
+                    // Update current values for each GPU
+                    const cards = document.querySelectorAll('.stats-card');
+                    
+                    // Clear existing current values first
+                    cards.forEach(card => {
+                        const currentValueContainer = card.querySelector('.current-value');
+                        currentValueContainer.innerHTML = '';
+                    });
+
+                    // Update current values for each GPU
+                    data.forEach((gpu, index) => {
+                        const gpuUtilContainer = cards[0].querySelector('.current-value');
+                        const memoryContainer = cards[1].querySelector('.current-value');
+                        const tempContainer = cards[2].querySelector('.current-value');
+
+                        // Create individual value elements for each GPU
+                        const gpuUtilEl = document.createElement('div');
+                        gpuUtilEl.innerHTML = `GPU ${gpu.index}: ${gpu.gpu_util}%`;
+                        
+                        const memUsedGB = (gpu.mem_used / 1024).toFixed(1);
+                        const memTotalGB = (gpu.mem_total / 1024).toFixed(1);
+                        const memoryEl = document.createElement('div');
+                        memoryEl.innerHTML = `GPU ${gpu.index}: ${memUsedGB}GB / ${memTotalGB}GB`;
+                        
+                        const tempEl = document.createElement('div');
+                        tempEl.innerHTML = `GPU ${gpu.index}: ${gpu.temperature}°C`;
+
+                        // Append values
+                        gpuUtilContainer.appendChild(gpuUtilEl);
+                        memoryContainer.appendChild(memoryEl);
+                        tempContainer.appendChild(tempEl);
+                    });
+
+                    // Update charts with data from all GPUs
+                    const labels = data.map(gpu => `GPU ${gpu.index}`);
+                    
+                    gpuUtilizationChart.data.labels = labels;
+                    gpuUtilizationChart.data.datasets[0].data = data.map(gpu => gpu.gpu_util);
+                    gpuUtilizationChart.update();
+
+                    memoryUtilizationChart.data.labels = labels;
+                    memoryUtilizationChart.data.datasets[0].data = data.map(gpu => gpu.mem_util);
+                    memoryUtilizationChart.update();
+
+                    temperatureChart.data.labels = labels;
+                    temperatureChart.data.datasets[0].data = data.map(gpu => gpu.temperature);
+                    temperatureChart.update();
+
+                    // Update memory details section
+                    const memoryDetailsContainer = document.getElementById('gpuMemoryDetails');
+                    memoryDetailsContainer.innerHTML = ''; // Clear previous details
+                    data.forEach(gpu => {
+                        const memoryDetail = document.createElement('div');
+                        memoryDetail.className = 'gpu-detail';
+                        memoryDetail.innerHTML = `
+                            <strong>GPU ${gpu.index} (${gpu.name})</strong>
+                            <div class="detail-stats">
+                                <div>Utilization: ${gpu.gpu_util}%</div>
+                                <div>Memory: ${gpu.mem_used}MiB / ${gpu.mem_total}MiB</div>
+                                <div>Temperature: ${gpu.temperature}°C</div>
+                            </div>
+                        `;
+                        memoryDetailsContainer.appendChild(memoryDetail);
+                    });
+                } else {
+                    console.error(data.error || 'Failed to fetch GPU stats');
+                }
+            } catch (error) {
+                console.error('Error fetching GPU stats:', error);
+            }
+        }
+
+        // Initial fetch and set interval
+        fetchGpuStats();
+        setInterval(fetchGpuStats, 5000);
+    </script>
+</body>
+</html>

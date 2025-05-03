@@ -1,0 +1,11 @@
+dependencies
+
+1.sudo pip3 install flask pexpect
+3. pip3 install pexpect
+
+
+runnig the server command 
+
+2. sudo python3 app.py
+
+
