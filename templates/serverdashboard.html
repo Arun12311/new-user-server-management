@@ -16,11 +16,6 @@
             <span>GPU Monitor</span>
         </div>
         <div class="nav-actions">
-            <select id="timeRange" class="time-selector">
-                <option value="1">1 Hour</option>
-                <option value="6">6 Hours</option>
-                <option value="24">24 Hours</option>
-            </select>
             <a href="{{ url_for('logout') }}" class="logout-button">
                 <i class="fas fa-sign-out-alt"></i>
                 <span>Logout</span>
@@ -33,7 +28,7 @@
             <h1 class="dashboard-title">GPU Performance Metrics</h1>
             <div class="refresh-info">
                 <i class="fas fa-sync-alt"></i>
-                <span>Auto-refreshing every 5s</span>
+                <span>Auto-refreshing every 2s</span>
             </div>
         </div>
 
@@ -249,7 +244,7 @@
 
         // Initial fetch and set interval
         fetchGpuStats();
-        setInterval(fetchGpuStats, 5000);
+        setInterval(fetchGpuStats, 2000);
     </script>
 </body>
 </html>
